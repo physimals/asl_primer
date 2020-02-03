@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>ASL Data for Examples</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">ASL Data for Examples</h1>
+
+  <h2>Introduction</h2>
+
+  <p>Here you will find all of the data you will need to run the
+  examples associated with the primer: Introduction to Perfusion
+  Quantification using Arterial Spin Labelling.</p>
+  <p>Please note that the data is provided for training purposes and
+  should not be used for research without permission.</p>
+
+  <h2>Single PLD pcASL</h2>
+  <p>This dataset uses pcASL labeling and a single post-labeling
+  delay. This dataset follows as closely as posisble the
+  recommendations of the ASL Consensus Paper on a good general purpose
+  ASL acquisition, although we have chosen to use a 2D mutli-slice
+  readout rather than a full-volume 3D readout.</p>
+
+  <p><list>The files contained in the archive are:
+  <li><code>asltc.nii.gz</code> - the label-control ASL series containing 60
+  volumes. That is 30 label and 30 control in pairs of alternating images with
+  label first, for BASIL tools this is <code>--iaf=tc</code>.</li>
+  <li><code>aslcalib.nii.gz</code> - the calibration image, a (largely) proton-density
+  weighted image with the same readout (resolution etc) as the main
+  ASL data. The TR for this data is 4.8 seconds, which means there
+  will be some T1 weighting.</li>
+  <li><code>aslcalib_PA.nii.gz</code> - another calibration image,
+  identical to <code>aslcalib.nii.gz</code> apart from the use of
+  posterior-anterior phase encoding (anterior-posterior was used in
+  the rest of the ASL data). This is provided for distortion
+  correction.</li>
+  <li><code>T1.nii.gz</code> - the T1-weigthed anatomical of the same
+  subject.</li>
+  </list>
+
+  <pre class="listing">
+<a href="singlePLDpcASL.zip">Data download</a>
+  </pre>
+
+  <h2>Multi PLD pcASL</h2>
+  <p>This data supplements the Single PLD pcASL one above, adding
+  mutli-PLD ASL data in the same subject (collected in the same
+  session). This dataset used the same pcASL labelling, but with a
+  label duration of 1.4 seconds and 6 post-labelling delays of 0.25,
+  0.5, 0.75, 1.0, 1.25 and 1.5 seconds.</p>
+
+  <p><list>The files contained in the archive are:
+  <li><code>asltc.nii.gz</code> - the label-control ASL series
+  containing 96 volumes: each PLD was repeated 8 times, thus there are
+  16 volumes (label and control paired) for each PLD. The order in
+  which these was collected was a full set of PLD, followed
+  by another, etc. For <code>asl_file</code> this is the same as
+  setting <code>--ibf=tis</code> - the data is grouped as repeats of
+  the whole set of PLDs (TIs).</li>
+  <li><code>csfmask.nii.gz</code> - a mask, in the same space as the
+  ASL data, of the ventricles for use in calibration. This is simply
+  the result of previously running <code>oxford_asl</code> on the data
+  and is provided to save time when running the examples.</li>
+  </list></p>
+
+   <pre class="listing">
+<a href="multiPLDpcASL.zip">Data download</a>
+  </pre>
+
+  <h2> Group ASL data</h2>
+  <p>This data contains the subset of measurements made from a group
+  of eight subjects (but we only use seven here) both at rest and when
+  subject to visual plus motor stimulation. The acquisition was almost
+  identical to the Multi PLD pcASL data.</p>
+
+  <p><list>the files contained in the archive are:
+  <li><code>subject1</code> - a subdirectory containing the data from
+  one subject that inlcudes: <code>rest.nii.gz</code> pcASL data
+  during resting, <code>task.nii.gz</code> pcASL data when stimulation
+  was being applied, <code>calibration_head.nii.gz</code> a
+  calibration image with a TR of 6 seconds,
+  <code>calibration_body.nii.gz</code> a calibration image (TR 6
+  seconds) using the body coil to permit correction for coil
+  sensitivity, <code>T1.anat</code> the T1 strucutral image having
+  been analysed using <code>fsl_anat</code>.</li>
+  <li><code>perfusion_study.nii.gz</code> - perfusion images from
+  seven individuals both at rest and during stimulation combined into
+  a single image in MNI152 standard space.</li>
+  <li><code>design.*</code> - design matrix files for statistical
+  inference, created with <code>Glm<code>.</li>
+  </list>
+  </p>
+
+  <pre class="listing">
+<a href="grouppcASL.zip">Data download</a>
+  </pre>
+  
+
+</body>
