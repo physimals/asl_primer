@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>Example 2: Perfusion Analysis using pcASL (GUI)</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">Example 2: Perfusion Analysis using pcASL (GUI)</h1>
+
+<h2>Introduction</h2>
+
+<p>The purpose of this example is essentailly do a better job of the
+  analysis we did in  <a href="../ex1GUI/index.html"
+  target="dynamic">Example 1</a> on the same data using the <a href="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL"
+  target="dynamic">BASIL</a> GUI in FSL. Thus this example
+  incorporates various corrections, for motion and distortion, as
+  outlined in Chapter 2 of the primer. The example then goes on to
+  explore calibration (Chapter 5) and partial volume correction (Chapter
+  6). There is a similar example
+  using the command line tools <a href="../ex2/index.html" target="_blank">here</a>.</p>
+
+  <p> NOTE that we reccomend you use FSL v6.0.1 (or higher) for these exercises.</p>
+
+  <p> For this example you should use the Single PLD pcASL dataset
+  set. This ASL data was acquired using pcASL labelling
+  with a label duration of 1.8 seconds and a post-labelling delay
+  (PLD) of 1.8 seconds, following the recommendations of the ASL
+  consensus paper. </p>
+
+  <pre class="listing">
+<a href="../data/index.html" target="_blank">Get the data</a>
+</pre>
+
+  <h2>Perfusion Quantification</h2>
+  <h3>(Primer Example Boxes 1.3, 3.1, 3.2 & 5.1)</h3>
+
+<p>We can improve upon the analysis we did in <a href="../ex1GUI/index.html"
+  target="dynamic">Example 1</a>. First, follow the steps to setup the
+  analysis as for that analysis, but before you hit 'Run' make the
+  following modifications.</p>
+
+  <p>On the 'Distortion Correction' tab, select 'Apply distortion
+  correction'. Load the 'Phase-encode-reveresed calibration image'
+  <code>aslcalib_PA.nii.gz</code>. Set the 'Effective EPI echo
+  spacing' to 0.00095 and the 'Phase encoding direction' to 'y'.</p>
+
+   <img src="Dist.jpeg" alt="BASIL GUI previewing perfusion-weighted
+  image" width=900>
+
+  <p>On the 'Analysis' tab, select 'Motion Correction'. Make sure you
+  have 'Adaptive spatial regularisation on perfusion' selected (it is
+by default). This will reduce the appearance of noise in the final
+  perfusion image using the
+  minimum ammount of smoothing appropriate for the data. Now click 'Run'.</p>
+
+ <img src="Analysis2.jpeg" alt="BASIL GUI Analysis" width=900>
+  
+<p>For this analysis we are still in 'White
+Paper' mode.Specifically this means we are using
+  simplest kinetic model that assumes all delivered blood-water has
+  the same T1 as that of blood (see Chapter 4 of the ASL primer for
+  more information) and that the Arterial Transit Time should be
+  treated as 0 seconds.</p>
+
+<p>To view the final result:</p>
+<pre class="bash">
+fsleyes oxasl/native_space/perfusion_calib.nii.gz
+  </pre>
+
+<p>The result will be similar to the analysis in <a href="../ex1GUI/index.html"
+  target="dynamic">Example 1</a> although the effect of distortion
+  correction should be noticeable in the anterior protion of the
+  brain. The effects of motion correction are less obvious, this
+  data does not have a lot of motion corruption in it.</p>
+
+  <h2>Making use of Structural Images</h2>
+  <h3>(Primer Example Boxes 3.4 & 6.1)</h3> 
+  <p>Thus far all of the analyses have relied purely on the ASL data
+  alone. However, often you will have a (higher resolution) structural
+  image in the same subject and would like to use this as well, at the
+  very least as part of the proceess to transform the perfusion images into some
+  template space.</p>
+
+  <p>We can repeat the analysis above but now providing structural
+  information. The recommended way to do
+  this is to take your T1 weighted structural image (which is most
+  common) and firstly process using <code>fsl_anat</code>, passing the
+output directly from that tool to BASIL. You either ask the GUI to do this for you, or run <code>fsl_anat</code> on the T1-weighted
+image that came with this dataset with this command:</p>
+
+<pre class="bash">
+  fsl_anat -i T1.nii.gz
+  </pre>
+
+<list>Go back to the analysis you have setup above. On the 'Structure'
+tab, for 'Structural data from' either:
+<li> Select 'Existing FSL_ANAT output' then load the 'Existing FSL_ANAT directory',
+e.g. <code>T1.anat</code>, or</li>
+<li> Select 'Run FSL_ANAT on structural image' and load the
+'Structural Image' <code>T1.nii.gz</code>.</li>
+</list>
+
+   <img src="Struct.jpeg" alt="BASIL GUI Structure" width=900>
+
+  <p>This analysis will take longer overall, although the extra time
+  is taken up doing <code>fsl_anat</code> and registration between ASL and structural
+  images. </p>
+
+  <p>You will find some new results in the output
+  directory:</p>
+  <list>
+  <li> <code>oxasl/struct_space</code> - this sub-drectory contains results
+  transformed into the same space as the structural image. The
+ files in here will match those in the <code>native_space</code>
+  subdirectry of the earlier analysis, i.e., containing perfusion
+images with and without calibration.</li>
+<li> <code>oxasl/native_space/asl2struct.mat</code> - this is the
+  (linear) transformation between ASL and structural space. It can be
+  used along with a transformation between sturcutral and template
+  space to transform the ASL data into the template space. It was used
+  to create the results in <code>oxasl/struct_space</code>.</li>
+<li> <code>oxasl/native_space/perfusion_calib_gm_mean.txt</code> -
+  this contains the result of calculating the perfusion within a gray
+  matter mask, these are in ml/100g/min. The mask was derived from the partial volume estimates
+  created by <code>fsl_anat</code> and transformed into ASL space
+  followed by thresholding at 70%. This is a helpful check on the
+  absolute perfusion values found and it is not aytpical too see
+  values in the range 30-50 here. There is also a white matter result
+(for which a threshold of 90% was used).</li>
+<li> <code>oxasl/native_space/gm_mask.nii.gz</code> - this is the gray
+  matter mask used in the above calculations. There is also the
+  associated white matter mask.</li>
+  <li> <code>oxasl/native_space/gm_roi.nii.gz</code> - this is another
+  mask that represents areas in which there is some grey matter (at
+  least 10% from the partial volume estimates). This can be useful for
+  visualisation, but mainly when looking at partial volume corrected
+  data.</li>
+  </list>
+
+  <h2>Reference Tissue Calibration</h2>
+  <h3>(Primer Examples Boxes 5.3 & 5.4)</h3>
+  <p>Thus far the calibration to get perfsion in units of ml/100g/min
+  has been done using a voxelwise division of the realtive perfusion
+  image by the (suitably corrected) calibration image - so called
+  'voxelwise' calibration. This is in keeping with the recommendations
+  of the ASL White Paper for a simple to implement quantitative
+  analysis. However, we could also choose to use a reference tissue to
+  derive a single value for the equilirbirum mangetization of arterial
+  blood and use that in the calibnration process.</p>
+
+  <p>Go back to the analysis you have already setup. We are now going
+  to turn off 'White Paper' mode, this will provide us with more
+  options to get a potentially more accurate analysis. To do this return to the 'Analysis' tab
+  and deselect the 'White Paper' option, you will see that the
+  'Arterial Transit Time' goes from 0 seconds to 1.3 seconds (the
+  default value for pcASL in BASIL based on our experience with pcASL
+  labeling plane placement) and the 'T1' value (for tissue) is
+  different to 'T1b' (for arterial blood), since the Standard (aka
+  Buxton) model for ASL kinetics considers labeled blood both in the
+  vascualture and the tissue.</p>
+
+    <img src="Analysis3.jpeg" alt="BASIL GUI Analysis" width=900>
+
+<p> Now that we are not in 'White Paper' mode we can also change the
+  calibration method. On the 'Calibration' tab, change the 'Calibration mode' to 'Reference
+  Region'. Now all of the 'Reference tissue' options will become
+  available, but leave these as they are: we will accept the default
+  option of using the CSF (in the ventricles) for calibration.</p>
+
+   <img src="Calib2.jpeg" alt="BASIL GUI Calibration" width=900>
+
+  <p>The resulting perfusion images should look very similar to those
+  produced using the voxelwise calibration, and the absolute values
+  should be similar too. For this, and many datasets, the two methods
+  are broadly equivalent. You can check on some of the interim
+  calcuations for the calibration by looking in the
+  <code>oxasl/calib</code> subdirectory: here you will find the value
+  of the estimated equilirbirum mangetization of arterial blood for
+  this dataset in <code>M0.txt</code> and the reference tissue mask in
+  <code>refmask.nii.gz</code>. It is worth checking that the latter
+  does indeed only lie in the venticles when overlaid on an ASL image
+  (e.g. the perfusion image or the calibration image), it should be
+  conservative, i.e., only select voxels well within the ventricles
+  and not on the boundary with white matter.</p>
+
+<h2>Partial Volume Correction</h2>
+<h3>(Primer Example Box 6.3)</h3>
+
+  <p>Having dealt with structural image and in the process obtained
+  partial volume estimates we are now in a position to do partial
+  volume correction. This does more than simply attempt to estimate
+  the mean perfusion within the grey matter by the definition of an
+  ROI based on the partial voume estimates, but attempts to derive and
+  image of gray matter perfusion directly (along with a separate image
+  for white matter).</p>
+
+<p>Return to your earlier analysis and now on the 'Analysis' tab
+select 'Partial Volume Correction'. Then click 'Run'.</p>
+
+<p>In the results directory you will still find an analysis performed
+without partial volume correction in <code>oxasl/native_space</code>
+as before. The results of partial volume correction can be found in
+<code>oxasl/native_space/pvcorr</code>. This new subdirectory has the
+same structure as the non-corrected results, only now
+<code>perfusion_calib.nii.gz</code> is an estimate of perfusion only
+in gray matter, it has been joined by a new set of images for the
+estimation of white matter perfusion, e.g.,
+<code>perfusion_wm_calib.nii.gz</code>. It may be more helpful to look at
+<code>perfusion_calib_masked.nii.gz</code> (and the equivalent
+<code>perfusion_wm_calib_masked.nii.gz</code>) since this has been
+masked to include only voxels with more than 10% gray matter (or white
+matter), i.e., voxels in which it is reasonable to interpret the gray
+matter (white matter) perfusion values.</p>
+
+
+</body>
+</html>
+

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>Example 1: Simple Perfusion Analysis using pcASL (GUI)</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">Example 1: Simple Perfusion Analysis using pcASL (GUI)</h1>
+
+<h2>Introduction</h2>
+
+<p>The purpose of this exercise is to perform a very simple analysis
+  of ASL data to produce a perfusion image as an introduction to using
+  ASL, esentially following the procedure outlined in Chapter 1 of the
+  Primer using the <a href="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL"
+  target="dynamic">BASIL</a> GUI in FSL. There is a similar example
+  using the command line tools <a href="../ex1/index.html" target="_blank">here</a>.</p>
+
+  <p> NOTE that we reccomend you use FSL v6.0.1 (or higher) for these exercises.</p>
+
+  <p> For this exercise you should be using the Single PLD pcASL dataset
+  set. This ASL data was acquired using pcASL labelling
+  with a label duration of 1.8 seconds and a post-labelling delay
+  (PLD) of 1.8 seconds, following the recommendations of the ASL
+  consensus paper. </p>
+
+  <pre class="listing">
+<a href="../data/index.html" target="_blank">Get the data</a>
+</pre>
+
+  <h2>Look at the data</h2>
+  <h3>(Primer Example Box 1.1)</h3>
+
+  <p>It is always a good idea to take a look at the raw data just to
+  check that nothing has gone horribly wrong in the acquisition and
+  ensure you know exactly what you are dealing with. </p>
+  <list> There are two
+  separate files that contain the ASL data we need:
+  <li>asltc - this contains 60 volumes and is repeated
+  measurements of alternating label and control images (in that
+  order).</li>
+  <li>aslcalib - this is the calibration image (only a single volume),
+  it is effectively a proton density image acquired with the same
+  readout as the ASL data. In this case the TR was 4.8 seconds, which
+  means there will be some T1 weighting that we might want to correct for.</li>
+  </list>
+
+<p>View these images in fsleyes:</p>
+  
+  <pre class="bash">
+fsleyes aslcalib.nii.gz -dr 0 1500 asltc.nii.gz -dr 0 1500
+  </pre>
+
+  <p>
+  <list>
+  Notice that:
+<li>There is a marked intensity difference between the calibration image and the label-control data. This is because background suppression was applied when acquiring the label-control data, as recommended by the ASL consensus paper, to reduce the influence of motion and physiological noise sources.</li>
+<li>It is very hard to spot differecnes between label and control
+  images - try using the movie mode of fsleyes, you might find it
+  helpful to set the display range for the asltc.nii.gz image as 0 to
+500 now.</li>
+<li>There is an alternating pattern in the timeseries of the
+  label-control data, but it is small compared to the mean signal
+  intensity in any given voxel. To see this use the timeseries mode in
+  fsleyes, you will need to choose a voxel in cotrical gray matter
+  (where there will be the largest perfusion signal) e.g. [20,14,13].</li>
+  </list>
+  </p>
+
+  <h2>A Perfusion-Weighted Image </h2>
+  <h3>(Primer Example Box 1.2)</h3>
+<p>Since the data looks okay we can proceed to the calculation of a
+  perfusion-weighted image (PWI). For this we will use the 'preview'
+  feature of the BASIL GUI, essentially we are generating the PWI to check
+  that the data is okay for further analysis.</p>
+
+<p>  To launch the GUI at the command line you will need to type
+  <code>asl_gui</code>. Note that if you have downloaded the
+  'pre-release' yourself, you may need to provide a path to the
+  installed version of the GUI, e.g. <code>/Users/{blah}/Downloads/oxford_asl/asl.gui</code></p>
+
+  <p>Once it has launched you
+  will find yourself on the 'Input Data' tab, you
+  should:</p>
+  <list>
+  <li>Load the ASL data <code>asltc.nii.gz</code> as the 'Input
+  Image'.</li>
+  <li>Set the 'Number of PLDs', which in this case is 1, this is
+  already done by default.</li>
+  <li>Click the 'Update' button beneath the 'Data Preview' pane on the right.</li>
+  </list>
+
+  <p> At this point the GUI should look like the screen shot below and
+  a PWI will have appeared in the 'Data Preview' pane. At this point
+  in our analysis this is reassuring, if we didn't see something that
+  looks roughly like this, we might check if the data order that the
+  GUI is expecting matches that in the data. We could alter the 'Data
+  order' settings if needed and update the preview again'. </p>
+
+  <img src="PWI.jpeg" alt="BASIL GUI previewing perfusion-weighted
+  image" width=900>
+  
+  <p>Note also, beneath the 'Data Preview', that there is a 'Data order
+  preview'. The idea of this graphic is to help visually to confirm
+  that the way that the GUI is intepreting the ordering of volumes in
+  the data matches what you are expecting. In this case we have a
+  single PLD repeated 30 times with the label and control images
+  paired in the data (this is pretty common). What the 'Data order
+  preview' shows is the first instance of the PLD in purple, showing
+  both the label and control (hatched) volume. Each subsequent repeat
+  of the same PLD is coloured green, again showing that we have a
+  label follwed by control (hatched) volume.</p>
+
+  <p>You can try a different 'Data order' option to see what
+  happens. Change 'Label/Control pairs' from 'Label then control' to
+  'Control then label'. This switches the expected order of label and
+  control images within the pair. If you then udpate the preview you
+  will find that the contrast reverses, the perfusion now has the
+  wrong 'sign'.
+  </list>
+
+  <h2>(Simple) Perfusion Quantification</h2>
+  <h3>(Primer Example Box 1.3)</h3>
+  <p>We have checked the PWI, thus we
+  can proceed to final quantification of perfusion, inverting the
+  kinetics of the ASL label delivery and using the calibration
+image to get values in the units of ml/100g/min.</p>
+
+<p>To do this we need to tell the BASIL GUI some information about the
+  data and the analysis we want to perform.</p>
+
+  <list>On the 'Input Data' tab we need to sepcify the 'Acquisition parameters':
+  <li> Labelling - cASL/pcASL (the deafult option).</li>
+  <li> Bolus duration (s) - 1.8 (default).</li>
+  <li> PLDs (s) - 1.8 (default).</li>
+  <li> Readout - 2D multi-slice (you will need to set this).</li>
+  <li> Time per slice (ms) - 45.2 (only appears when you change the
+  Readout option).</li>
+  </list>
+
+  <p>You can now hit 'Next' and you will be taken to the next tab. For
+  this (simple) analysis we do not want to use a structural image, so
+  we can move on by clicking 'Next' again. Or we could skip stright to
+  the 'Calibration' tab using the menu across the top.</p>
+
+  <p>On the 'Calibration' tab, 'Enable Calibration' first, then load
+  the calibration image <code>aslcalib.nii.gz</code>. Change the
+  'Calibration mode' to 'voxelwise', and set the 'Sequence TR (s)' to
+  be 4.8.</p>
+
+  <img src="Calib.jpeg" alt="BASIL GUI Calibration" width=900>
+  
+  <p>Finally, we need to set the analysis options: either skip to the
+  'Analysis' tab or click 'Next' twice.</p>
+
+  <p>On the 'Analysis' tab, choose an output directory name, e.g.,
+  <code>oxasl</code>. And, select 'Analysis which conforms to White
+  Paper', so that we know the analysis is using the same default
+  parameter values proposed in the ' ASL White Paper' quantification
+  formula. Note that in the lower left corner the GUI is now telling
+  us that we are 'Ready to Go'. At this point you can click 'Run' in
+  the lower right corner.</p>
+
+  <img src="Analysis.jpeg" alt="BASIL GUI Analysis" width=900>
+  
+
+<p>To view the final result:</p>
+<pre class="bash">
+fsleyes oxasl/native_space/perfusion_calib.nii.gz
+  </pre>
+
+  <p>Note that if you just supply a name for the output directory (not
+  a full path), as we have here, this will be placed in the 'working
+  directory', i.e. whicheveer directory you were in when you launched
+  the GUI.</p>
+  
+<p>You will find something that looks very similar to the PWI we viewed before, but now the values at every voxel are in ml/100g/min.</p>
+
+<p>You will also find a PWI saved as
+<code>oxasl/native_space/perfusion</code>. This is very similar to the
+PWI displayed in the preview pane, except that the kinetic
+model inversion has been applied to it, this is the image
+pre-calibration.</p>
+
+<p>We can do a better job of the analysis of this data, by applying
+some corrections during analysis, this is the subject of <a href="../ex2GUI/index.html"
+  target="dynamic">Example 2</a>.</p>
+
+</body>
+</html>

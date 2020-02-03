@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>Example 1: Simple Perfusion Analysis using pcASL</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">Example 1: Simple Perfusion Analysis using pcASL</h1>
+
+<h2>Introduction</h2>
+
+<p>The purpose of this exercise is to perform a very simple analysis
+  of ASL data to produce a perfusion image as an introduction to using
+  ASL, esentially following the procedure outlined in Chapter 1 of the
+  Primer using the <a href="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL"
+  target="dynamic">BASIL</a> tools in FSL.</p>
+
+  <p> NOTE that we reccomend you use FSL v6.0.1 (or higher) for these exercises.</p>
+
+  <p> For this exercise you should using the Single PLD pcASL dataset
+  set. This ASL data was acquired using pcASL labelling
+  with a label duration of 1.8 seconds and a post-labelling delay
+  (PLD) of 1.8 seconds, following the recommendations of the ASL
+  consensus paper. </p>
+
+  <pre class="listing">
+<a href="../data/index.html" target="_blank">Get the data</a>
+</pre>
+
+  <h2>Look at the data</h2>
+  <h3>(Primer Example Box 1.1)</h3>
+
+  <p>It is always a good idea to take a look at the raw data just to
+  check that nothing has gone horribly wrong in the acquisition and
+  ensure you know exactly what you are dealing with. </p>
+  <list> There are two
+  separate files that contain the ASL data we need:
+  <li>asltc - this contains 60 volumes and is repeated
+  measurements of alternating label and control images (in that
+  order).</li>
+  <li>aslcalib - this is the calibration image (only a single volume),
+  it is effectively a proton density image acquired with the same
+  readout as the ASL data. In this case the TR was 4.8 seconds, which
+  means there will be some T1 weighting that we might want to correct for.</li>
+  </list>
+
+<p>View these images in fsleyes:</p>
+  
+  <pre class="bash">
+fsleyes aslcalib.nii.gz -dr 0 1500 asltc.nii.gz -dr 0 1500
+  </pre>
+
+  <p>
+  <list>
+  Notice that:
+<li>There is a marked intensity difference between the calibration image and the label-control data. This is because background suppression was applied when acquiring the label-control data, as recommended by the ASL consensus paper, to reduce the influence of motion and physiological noise sources.</li>
+<li>It is very hard to spot differecnes between label and control
+  images - try using the movie mode of fsleyes, you might find it
+  helpful to set the display range for the asltc.nii.gz image as 0 to
+500 now.</li>
+<li>There is an alternating pattern in the timeseries of the
+  label-control data, but it is small compared to the mean signal
+  intensity in any given voxel. To see this use the timeseries mode in
+  fsleyes, you will need to choose a voxel in cotrical gray matter
+  (where there will be the largest perfusion signal) e.g. [20,14,13].</li>
+  </list>
+  </p>
+
+  <h2>A Perfusion-Weighted Image </h2>
+  <h3>(Primer Example Box 1.2)</h3>
+<p>Since the data looks okay we can proceed to the calculation of a
+  perfusion-weighted image (PWI). This can be achieved relatively simply by
+  subtracting pairs of label and control iamges within the data and
+  then averaging over all the resulting volumes. This will allow us to
+  check that there is perfusion information in the data - as you might
+  have gathered it is realtively easy for the data to look fine on
+  first inspection, but hard to tell if there is going to be a
+  perfusion image in there.</p>
+
+  <p>To perform label control subtraction use
+  <code>asl_file</code>:</p>
+
+  <pre class="bash">
+  asl_file --data=asltc --ntis=1 --iaf=tc --diff --out=asldiffdata --mean=asldiffdata_mean
+  </pre>
+  
+  <p>Note that we have told <code>asl_file</code> that there is a
+  single PLD (using <code>--ntis=1</code>, <code>asl_file</code> calls
+  them TIs) and asked for two different outputs, one will contain all
+  the different volumes after subtraction has been performed
+  <code>asldiffdata</code> and the other will be the mean over all the
+  volumes after subtraction <code>asldiffdata_mean</code>, i.e., the
+  PWI.</p>
+
+  <p>Look at both of these in FSLeyes:</p>
+  
+  <pre class="bash">
+fsleyes asldiffdata.nii.gz asldiffdata_mean.nii.gz
+  </pre>
+  
+  <p>The PWI (<code>asldiffdata_mean</code>) has the expected
+  distirbution for perfusion in the brain - it looks reassuraingly
+  like a perfusion image. If you now scroll through all the volumes in
+  <code>asldiffdata</code> you will be able to observe how noisy ASL
+  data is, but the perfusion pattern should still be visible in all
+  the different volumes. It is interesting to also load the
+  <code>aslcalib</code> file and compare the magnitude of voxels in
+  that with the PWI - there is approximately a factor of 100
+  difference.</p>
+
+  <h2>(Simple) Perfusion Quantification</h2>
+  <h3>(Primer Example Box 1.3)</h3>
+  <p>We have checked the raw data and also checked the PWI, thus we
+  can proceed to final quantification of perfusion, inverting the
+  kinetics of of the ASL label delviery and using the calibration
+image to get values in the units of ml/100g/min.</p>
+
+<p>We can do the full quantification using a single call to oxford_asl
+(it incorporates the asl_file subtraction process):</p>
+
+<pre class="bash">
+  oxford_asl -i asltc -o oxasl --wp --casl --iaf=tc --tis=3.6
+  --bolus=1.8 --slicedt=0.0452 -c aslcalib --tr 4.8
+  </pre>
+
+<p>
+<list>Note that we have specified:
+<li>The type of labeling, pcASL: <code>--casl</code>).</li>
+<li>The format of the data, label-control: <code>--iaf=tc</code>).</li>
+<li>The PLD, via the inflow time, which is the label durection plus
+PLD for pcASL: <code>--tis=3.6</code>.</li>
+<li> The label duration (<code>--bolus=1.8</code>).</li>
+<li> The time to acquire each slice in the 2D EPI readout (to correct
+for the difference in PLD in each slice):
+<code>--slicedt=0.0452</code>.</li>
+<li>The TR of the calibration data: <code>--tr=4.8</code>.</li>
+</list>
+</p>
+
+<p>For this analysis we have put <code>oxford_asl</code> into 'White
+Paper' mode (<code>--wp</code>), this means it uses a kinetic model and defaults for the
+parameters that are consistent with the formulate in the ASL Consensus Paper.</p>
+
+<p>To view the final result:</p>
+<pre class="bash">
+fsleyes oxasl/native_space/perfusion_calib.nii.gz
+  </pre>
+
+<p>You will find something that looks very similar to the PWI we viewed before, but now the values at every vxoel are in ml/100g/min.</p>
+
+<p>You will also find a PWI saved as
+<code>oxasl/native_space/perfusion</code>. This is very similar to the
+PWI we calculated using <code>asl_file</code>, except that the kinetic
+model inversion has been applied to it, this is the image
+pre-calibration.</p>
+
+<p>We can do a better job of the analysis of this data, by applying
+some corrections during analysis, this is the subject of <a href="../ex2/index.html"
+  target="dynamic">Example 2</a>.</p>
+
+</body>

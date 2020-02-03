@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>Example 4: Analysis of Perfusion Differences in Individuals and
+Groups</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">Example 4: Analysis of Perfusion Differences in Individuals and
+Groups</h1>
+
+<h2>Introduction</h2>
+
+<p> The purpose of this example is to analyse ASL data where we are
+  looking for a difference in perfusion. This example follows
+  the pcASL Example Boxes in the Primer in Chapters 7 & 8. It uses a subset
+  of the data originally collected for the study in:</p>
+
+  <cite>Mezue, M., Segerdahl, A. R., Okell, T. W., Chappell, M. A.,
+  Kelly, M. E., & Tracey, I. (2014). Optimization and reliability of
+  multiple postlabeling delay pseudo-continuous arterial spin labeling
+  during rest and stimulus-induced functional task activation. Journal
+  of Cerebral Blood Flow and Metabolism, 34(12), 1919-1927. <a href="http://doi.org/10.1038/jcbfm.2014.163">doi.org/10.1038/jcbfm.2014.163</a></cite>
+  
+  
+    <p> NOTE that we reccomend you use FSL v6.0.1 (or higher) for these
+  exercises.</p>
+
+  <p>For this example you should use the Group ASL data. The data is
+  multi-PLD pcASL data was acquired using a very similar set of
+  parameters to the multi-PLD data, label duration of 1.4
+  seconds and PLDs of 0.25, 0.5, 0.75, 1.0, 1.25 and 1.5 seconds. </p>
+
+  <pre class="listing">
+<a href="../data/index.html" target="_blank">Get the data</a>
+</pre>
+
+  <h2>Perfusion difference in an individual </h2>
+  <h3>(Primer Example Box 7.1)</h3>
+
+<p>In the Group ASL data you should find the original ASL files for
+  subject 1, along with the T1-weighted structural image that has
+  already been processed using <code>fsl_anat</code>. There are two
+  ASL datasets for this subejct, along with two calibration
+  images:</p>
+
+  <p>
+  <list>
+  <li> <code>rest.nii.gz</code> - Multi-PLD pcASL whilst the subject
+  was at rest.</li>
+  <li> <code>task.nii.gz</code> - Multi-PLD pcASL including the
+  subject undertaking a task, in this case a combination of bilateral
+  finger tapping (motor task) and watching a flashing checkerboard
+  (visual task).</li>
+  <li> <code>calibration_head.nii.gz</code> - a calibration image with
+  TR of 6 seconds using the same head coil as the main ASL
+  acquisitions.</li>
+  <li> <code>calibration_body.nii.gz</code> - an extra calibration
+  image (TR 6 seconds), acquired using the body coil, to be used in correcting
+  for coil sensitivity.</li></list>
+  </p>
+
+  <p>The analysis of this data proceeds very much in the same way as
+  in Exercise 3, but with the inclusion of the body coil calibration
+  image as a 'calibration reference':</p>
+
+<pre class="bash">
+  oxford_asl -i rest -o oxasl_rest --casl --iaf=tc --ibf=rpt \
+  --tis=1.65,1.9,2.15,2.4,2.65,2.9 --bolus=1.4 --slicedt=0.0452 \
+  --fixbolus --spatial --mc \
+  --fslanat=T1.anat \
+  -c calibration_head --tr=6 --cmethod=single --cref=calibration_body
+  </pre>
+
+  <pre class="bash">
+  oxford_asl -i task -o oxasl_task --casl --iaf=tc --ibf=rpt \
+  --tis=1.65,1.9,2.15,2.4,2.65,2.9 --bolus=1.4 --slicedt=0.0452 \
+  --fixbolus --artoff --spatial --mc \
+  --fslanat=T1.anat \
+  -c calibration_head --tr=6 --cmethod=single --cref=calibration_body
+  </pre>
+
+  <p>You can examine the resulting perfusion maps
+  (<code>oxasl_rest/native_space/perfusion_calib.nii.gz</code> and
+  <code>oxasl_task/native_space/perfusion_calib.nii.gz</code>) and see
+  if you can spot the difference:</p>
+  
+ <pre class="bash">
+  FSLeyes oxasl_rest/native_space/perfusion_calib.nii.gz -dr 0 120 -cm Hot \
+  oxasl_task/native_space/perfusion_calib.nii.gz -dr 0 120 -cm Hot
+  </pre>
+
+  <p>You will have most luck if you set
+  your display range to be 0 to 120 for each image and look around
+  slice 9 (i.e. Z=8) at the posterior of the brain (in the visual cortex). Note that we haven't done anything here to
+  ensure that the rest and task data are aligned, thus the
+  corresponance between the two perfusion images is not perfect (and
+  attempting a subtraction of the two will not be totally informative).</p>
+  
+<p> If you examine the <code>perfusion_calib_gm_mean.txt</code> file
+  you will find that there has been a small (and thus most probably
+  insignificant) increase in the mean GM perfusion of about 2
+  ml/100g/min.</p>
+
+  <p>If we want to examine the difference in perfusion between rest
+  and task we should ensure they are in the same space. Since
+  <code>oxford_asl</code> has already done the registration to the
+  structural image for us, and the structural image provides useful
+  anatomical information, we will examine the perfusion difference in
+  structural space:</p>
+
+  <pre class="bash">
+fslmaths oxasl_task/struct_space/perfusion_calib -sub oxasl_rest/struct_space/perfusion_calib deltaperfusion
+
+FSLeyes T1.anat/T1_biascorr -dr 0 1000 deltaperfusion.nii.gz -dr 15 30 -cm Hot
+</pre>
+
+<p>Again it is worth looking at the visual cortex around slice 75. We
+have arbitarily chosen to show only perfusion values above 15
+ml/100g/min in this case and even then the image is still somewhat
+noisy. However, there are pretty consistent changes in the visual
+cortex of between 30 and 40 ml/100g/min visible.</p>
+
+<h2> Perfusion differences in a group </h2>
+<h3>(Primer Example Box 8.2)</h3>
+
+<p>There were eight subjects in the orignal study all of whom had ASL
+scans at rest and during combined motor and visual stimulation, we
+will only use seven of them here. With this data
+we can examine consistent perfusion changes across the group. Firstly
+we need to get the perfusion images into a common template space, we
+will choose the MNI152 standard brain, which is included in FSL. This
+is a good choice for this healthy, young cohort.</p>
+
+<p>We already have all we need for subject 1 to get the perfusion
+image into standard space. Namely: the ASL to structural
+transformation <code>native_space/asl2struct.mat</code> (there would
+be the equivalent non-linear warp if we had been using distortion
+correction), and the non-linear warp from structural to standard space
+provided by <code>fsl_anat</code>,
+<code>T1_toMNI_nonlin_coeff.nii.gz</code>. These can be combined using
+FSL tools, in this case we can use <code>apply_warp</code>. However,
+<code>oxford_asl</code> has already done this for us and the results
+are in the <code>std_space</code> subdirectory.</p>
+
+<p>The analysis of the ohter 6 subjects has already been done for you. The resulting image <code>perfusion_study.nii.gz</code>
+contains 14 perfusion images (as different volumes in the 4th
+dimension) - the first 7 are from the subjects at rest, the next 7 are
+from the task. This is ready for use in a statisitcal inference method
+such as <code>randomise</code> or <code>flameo</code>. We want to run
+a paired t-test in this case - to detect the common effect of
+stimulation controlling for each subject having different resting
+perfusion. We have already created a suitable design matrix for you
+(using <code>Glm</code>): <code>design.*</code>.</p>
+
+<p>We can use <code>flameo</code> and ordinary least squares to do a relatively fast parametric
+statistical analysis:</p>
+
+<pre class="bash">
+flameo --cope=perfusion_study.nii.gz --mask=${FSLDIR}/data/standard/MNI152_T1_2mm_brain_mask.nii.gz \
+--dm=design.mat --tc=design.con --cs=design.grp --runmode=ols --ld=flameout
+</pre>
+
+<p>The output can be found in <code>flameout</code>. It is interesting
+to look at the z-statistic outputs:</p>
+
+<pre class="bash">
+fsleyes $FSLDIR/data/standard/MNI152_T1_2mm.nii.gz \
+zstat1.nii.gz -dr 2 4 -cm Red zstat2.nii.gz -dr 2 4 -cm Blue
+</pre>
+
+<p>There are visble clusters of higher z-statistic values in both the
+visual and motor cortices in <code>zstat1</code> - try Y=53 and Z=38, looking posterior in
+the axial sliace and superior in the saggital. We shouldn't get too
+excited as these maps are uncorrected for multiple comparisons (and we
+are being somewhat liberal with our threshold for viewing).</p>
+
+<p>Since we have absolute perfusion measurements we could look and
+see, in any areas we have identified as being important/signficant,
+what the change in perfusion was. We can get this from the
+<code>flameo</code> output from <code>pe1.nii.gz</code> - this image
+containes the parameter estimate from the first explanatory variable
+which was the difference between rest and task (see
+<code>design.png</code>).</p>
+
+<pre class="bash">
+fsleyes $FSLDIR/data/standard/MNI152_T1_2mm.nii.gz \
+pe1.nii.gz -dr 5 15 -cm Hot
+</pre>
+
+<p> The largest changes in perfusion occur in the regions we are
+expecting and are of the order of 10 ml/100g/min on average. Note that
+the group effect has averaged out the large changes we saw when examining subject 1 alone.</p>
+
+<p>We should do our analysis using permutation testing if we want to
+be robust to the true distribution of perfusion changes in the
+group:</p>
+
+<pre class="bash">
+randomise -i perfusion_study.nii.gz -o randomiseout -m ${FSLDIR}/data/standard/MNI152_T1_2mm_brain_mask.nii.gz \
+-d design.mat -t design.con -e design.grp -T
+</pre>
+
+<p>Now we can examine results with multiple comparison corrections
+performed as we chose to run TFCE (the <code>-T</code> option). Look
+at the file ending <code>_tfce_corrp_tstat1.nii.gz</code>. The largest
+p-values in this image are in the regions we are expecting perfusion
+changes. Sadly they woudn't pass any conventionally chosen perfusion
+threshold though. This could be because there is acutally no effect to
+be observed, but in this case we know differently as the experiment is
+a very standard one and the effects are well characterised. We might
+have too few subjects (we only considered 7 which is a small
+sample). A major factor in this case is that we have treated all the
+<code>task.nii.gz</code> data as having been collected during
+stimulation. If you consult the orignal paper that is not atually the
+case, it was simply convinient to do so for the purposes of this
+example.</p>
+
+</body>
+
+

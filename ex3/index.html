@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>Example 3: Perfusion Analysis using multi-PLD pcASL</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">Example 3: Perfusion Analysis using multi-PLD pcASL</h1>
+
+<h2>Introduction</h2>
+
+<p>The purpose of this example is to analyse data that has been
+  acquired with mulitple post-labeling delays. The analysis is on data
+  from the same subject (and the same session) as used in <a href="../ex1/index.html"
+  target="dynamic">Example 1</a>  and <a href="../ex2/index.html"
+  target="dynamic">Example 2</a>. This example
+  uses the data first met in Chapter 4 of the primer.</p>
+
+   <p> NOTE that we reccomend you use FSL v6.0.1 (or higher) for these
+  exercises.</p>
+  
+  <p>For this example you should use the Multi-PLD pcASL data, you
+  will also need images from the Single-PLD pcASL data. The multi-PLD pcASL data was acquired using a label duration of 1.4 seconds and PLDs of 0.25, 0.5, 0.75,
+  1.0, 1.25 and 1.5 seconds. </p>
+
+  <pre class="listing">
+<a href="../data/index.html" target="_blank">Get the data</a>
+</pre>
+
+  <h2>Perfusion Quantification </h2>
+  <h3>(Primer Example Box 4.1)</h3>
+
+<p>We can proceed to do the full quantification using a single call to
+  <code>oxford_asl</code> as we did in Example 1 and 2. We will copy
+  the approach we took in  <a href="../ex2/index.html"
+  target="dynamic">Example 2</a> and include motion and distortion
+  correction, and we will use CSF as the reference tissue for
+  calibration purposes:
+</p>
+
+<pre class="bash">
+  oxford_asl -i asltc -o oxasl --casl --iaf=tc \
+  --tis=1.65,1.9,2.15,2.4,2.65,2.9 --bolus=1.4 --slicedt=0.0452 \
+  --fixbolus --artoff --spatial --mc \
+  -c aslcalib --tr 4.8 --cmethod=single --csf=csfmask --cblip=aslcalib_PA --pedir=y --echospacing=0.00095
+  </pre>
+
+  <p><list>Note that:
+  <li>The different PLD are provided as a comma separated list of
+  inflow times <code>--tis=1.65,1.9,2.15,2.4,2.65,2.9</code>.</li>
+  <li>We haven't defined an ATT (the <code>--bat=</code> option isn't
+  used), this parameter will be infered from the data. For multi-PLD
+  data the <code>--bat=</code> option can be used to set the initial (and
+  prior) value for this parameter, but it is always estimated from the
+  data. We do not set it here as we are happy with the default value
+  (1.3 seconds) provided.</li>
+  <li>We have explicitly told <code>oxford_asl</code> not to estimate an arterial
+  (macrovascular) component, <code>--artoff</code>. When we only had
+  single PLD data this didn't matter, as there isn't information in
+  single PLD ASL to estimate such a component, but it might be
+  posisble to infer from multi-PLD data - something we will return to
+  below.</li>
+  <li>We have explicitly told <code>oxford_asl</code> to use the
+  reference region approach and supplied a CSF mask (in the same space
+  as the ASL data). If we hadn't it would use the voxelwise method. We
+  could, as we did in Example 2, supply the structural image, but it
+  is quicker to supply an existing CSF mask in this case (to save
+  repeating the registration of ASL to structural image). This CSF
+  mask is simply the result of a previous run of oxford_asl on this
+  subject, as we generated in  <a href="../ex2/index.html"
+  target="dynamic">Example 2</a>.</li>
+  </list></p>
+
+  <p>The results directory from this analysis should look similar to
+  that obtained in  <a href="../ex2/index.html"
+  target="dynamic">Example 2</a>. The main difference is that the
+  <code>arrival.nii.gz</code> image is now a genuine estimate of
+  ATT;if you examine this image you should find a pattern of values
+  consitent with the time it takes for blood to transit between the
+  labeling to imaging regions. You might notice that the
+  <code>arrival.nii.gz</code> image was present even in the single-PLD
+  results, but if you looked at it contained a single value - the one
+  provided by the <code>--bat=</code> option - which meant that it
+  appeared blank in that case.</p>
+
+  <h2>Arterial/Macrovascular Signal Correction</h2>
+  <h3>(Primer Example Box 4.2)</h3>
+
+  <p>In the analysis above we prevented <code>oxford_asl</code> from
+  including an extra component in the model that would capture any
+  arterial (macrovascular) signal present in the data. This is fairly
+  reasonable for pcASL in general, since we can only start sampling
+  some time after the first arrival of labeled blood-water in the
+  imaging region. However, given we are using shorter PLD in our
+  multi-PLD sampling to improve the SNR there is a much greater
+  likelihood of arterial signal being present. Thus, we might like to
+  repeat the analysis with this component included:</p>
+
+  <pre class="bash">
+  oxford_asl -i asltc -o oxasl --casl --iaf=tc \
+  --tis=1.65,1.9,2.15,2.4,2.65,2.9 --bolus=1.4 --slicedt=0.0452 \
+  --fixbolus --spatial --mc \
+  -c aslcalib --tr 4.8 --cmethod=single --csf=csfmask --cblip=aslcalib_PA --pedir=y --echospacing=0.00095
+  </pre>
+
+  <p>All we did in this run was remove the <code>--artoff</code>
+  option. The results directory should be almost identical to the
+  previous run, but now we also gain some new results:
+  <code>aCBV.nii.gz</code> and
+  <code>aCBV_calib.nii.gz</code>; follwing the convention for the
+  perfusion images, these are the relative and absolute arterial
+  (cerebral) blood volumes respectively. If you examine one of these
+  and focus on the more inferior slices you should see a pattern of
+  higher values that map out the strcture of the major arterial
+  vasculature, including the Circle of Willis. This finding of an
+  arterial contirbution in some voxels rsults in a correction to the
+  perfusion image - you may now be able to spot that in the same
+  slices where there was some evidence for arterial contamination of
+the perfusion image before that has now been removed.</p>
+
+<h2>Partial Volume Correction</h2>
+<h3>(Primer Example Box 6.4)</h3>
+<p>In the same way that we could use <code>oxford_asl</code> for
+partial volume correction in <a href="../ex2/index.html"
+  target="dynamic">Example 2</a> for single PLD pcASL, we can do this
+for multi-PLD:</p>
+
+<pre class="bash">
+  oxford_asl -i asltc -o oxasl --casl --iaf=tc \
+  --tis=1.65,1.9,2.15,2.4,2.65,2.9 --bolus=1.4 --slicedt=0.0452 \
+  --fixbolus --spatial --mc \
+  -c aslcalib --tr 4.8 --cmethod=single --csf=csfmask --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 \
+--fslanat=T1.anat --pvcorr
+</pre>
+
+<p>Note that we need to provide partial volume estimates and we have
+thus used the T1.anat result from <a href="../ex2/index.html"
+  target="dynamic">Example 2</a>. In practice we do not need to
+supply the CSF mask in this case.</p>
+
+<p>The results directory now containes, as a further subdirectory, <code>pvcorr</code>,
+within the <code>native_space</code> subdirectory, the partial volume
+corrected results: gray matter (<code>perfusion_calib.nii.gz</code>
+etc) and white matter perfusion
+(<code>perfusion_wm_calib.nii.gz</code> etc)
+maps. Alongside these there are also gray and white matter ATT maps
+(<code>arrival</code> and <code>arrival_wm</code> respectively). The
+estimated maps for the arterial component
+(<code>aCBV_calib.nii.gz</code> etc) are still present in the
+<code>pvcorr</code> directory. Since this is not tissue specific there
+are not separate gray and white matter versions of this parameter.</p>
+
+<hr>
+
+<h2>ADVANCED: ASL data manipulation</h2>
+
+<p>In  <a href="../ex1/index.html"
+  target="dynamic">Example 1</a> we firstly manipulated the data using
+  <code>asl_file</code> to examine the perfusion-weighted image and
+  satisfy ourselevs that there was perfusion information in the
+  data. We can use <code>asl_file</code> with multi-PLD pcASL (or
+  almost any other ASL variant). For example, if we wanted to perform
+tag-control subtraction we could do as follows:</p>
+
+<pre class="bash">
+  asl_file --data=asltc --ntis=6 --iaf=tc --ibf=tis --diff --out=asldiffdata --mean=asldiffdata_mean
+</pre>
+
+<p>We have to be careful to do is specify the number of
+PLD (TI) in the data: <code>--nti=6</code>. The
+<code>asldiffdata_mean.nii.gx</code> contains result of averaging all
+the repeats of each invidiual PLD - thus it contains 6 separate
+volumes; if you examine these you should see that the first volume is
+relatively bright compared to the last couple of volumes. This
+reflects that fact that at the first PLD most (but not all) of the
+brain has recieved labelled blood-water and thus there is quite a lot
+of perfusion signal. By the time of the later PLD the end of the bolus
+of labeled blood-water has already reached every part of the brain and
+T1 decay is gradually reducing the signal. If you examine the
+<code>asldiffdata.nii.gz</code> file you will find it contains the
+noisy label-control difference images.</p>
+
+<p>Note that we have also told <code>asl_file</code> the oder in which
+the PLD are to be found in the data: <code>--ibf=tis</code>. They were
+aquired as a full set of PLDs first, followed by another repeat of all
+the PLDs etc. It is possible, but less common, that we could have
+acquired all the repeats for a single PLD first, then all at the next
+PLD etc.</p>
+
+<p>In this example the early PLDs are a pretty good basis on which to
+examine if the data contains perfusion information. However, this
+might be less reliable if we have fewer repeats at each PLD where the
+influence of noise at each PLD would be more noticable. We can
+generate a very simple perfusion-weighted image by averaing all the
+PLD:</p>
+
+<pre class="bash">
+  fslmaths asldiffdata_mean -Tmean aslpwi
+</pre>
+
+<p>There are various other things we can do with <code>asl_file</code>
+to mainpulate the data; for example, splitting the data into separate
+files for each PLD using the <code>--split</code> option, or output
+the data having changed the oder in which the repeated PLDs appear in
+the data according to the pattern using the <code>--out</code> option
+with <code>--obf</code>. For more information see the help for <code>asl_file</code>.</p>
+
+
+</body>
+
+

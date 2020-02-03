@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<!-- Start of Practical boilerplate. -->
+<link rel="stylesheet" type="text/css" href="../.fsl/fsl.css" />
+<link rel="stylesheet" type="text/css" href="../.fsl/quiz.css">
+<link rel="stylesheet" type="text/css" href="../.fsl/viz.css">
+
+<script type="text/javascript" src="../.fsl/quiz.js"></script>
+<script type="text/javascript" src="../.fsl/showhide.js"></script>
+<script type="text/javascript" src="../.fsl/viz.js"></script>
+<script type="text/javascript">
+window.onload=function() {
+    setupQuizQuestions();
+    var graphs = document.querySelectorAll(".viz-graph");
+    var parser = new DOMParser;
+    for (var i = 0; i < graphs.length; i++){
+        var div = graphs[i];
+        var dom = parser.parseFromString(div.innerHTML, "text/html");
+        div.innerHTML = Viz(dom.body.textContent);
+        var svg = div.querySelector("svg");
+        svg.setAttribute("width",  "100%");
+    }
+}
+</script>
+<!-- End of Practical boilerplate. -->
+
+
+<title>Example 2: Perfusion Analysis using pcASL</title>
+</head>
+
+<body>
+<div id="practical">
+<h1 class="centred">Example 2: Perfusion Analysis using pcASL</h1>
+
+<h2>Introduction</h2>
+
+<p>The purpose of this example is essentailly do a better job of the
+  analysis we did in  <a href="../ex1/index.html"
+  target="dynamic">Example 1</a> on the same data using the <a href="https://fsl.fmrib.ox.ac.uk/fsl/fslwiki/BASIL"
+  target="dynamic">BASIL</a> tools in FSL. Thus this example
+  incorporates various corrections, for motion and distortion, as
+  outlined in Chapter 2 of the primer. The example then goes on to
+  explore calibration (Chapter 5), partial volume correction (Chapter
+  6) and analysis using epochs (Chapter 7).</p>
+
+  <p> NOTE that we reccomend you use FSL v6.0.1 (or higher) for these exercises.</p>
+
+  <p> For this example you should use the Single PLD pcASL dataset
+  set. This ASL data was acquired using pcASL labelling
+  with a label duration of 1.8 seconds and a post-labelling delay
+  (PLD) of 1.8 seconds, following the recommendations of the ASL
+  consensus paper. </p>
+
+  <pre class="listing">
+<a href="../data/index.html" target="_blank">Get the data</a>
+</pre>
+
+  <h2>Perfusion Quantification</h2>
+  <h3>(Primer Example Boxes 1.3, 3.1, 3.2 & 5.1)</h3>
+
+<p>We can proceed to do the full quantification using a single call to
+  <code>oxford_asl</code> as we did in Example 1, only now with a few extra options:
+</p>
+
+<pre class="bash">
+  oxford_asl -i asltc -o oxasl --wp --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --mc -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095
+  </pre>
+
+<p><list>Note that we have now specified:
+<li>That motion correction is to be done: <code>--mc</code>. This is
+simply an application of <code>mcflirt</code> to the ASL series, as
+  well as realignment of the calibration images to the series
+  too.</li>
+  <li> That distortion correction is to be done using a blip-reversed
+  calibration image, the phase encoding direction being along y
+  (anterior-posterior axis) and the effective echo spacing of the
+  images: <code>--cblip=aslcalib_PA.nii.gz --pedir=y
+  --echospacing=0.00095</code>.</li>
+  <li>That automated spatial regularisation (a 'spatial prior') should
+  be implmented on the estimated perfusion image: <code>--spatial</code>. This will reduce the
+  appearance of noise in the final perfusion image and effect the
+  minimum ammount of smoothing appropriate for the data.</li>
+</list></p>
+
+<p>For this analysis we still have <code>oxford_asl</code> into 'White
+Paper' mode (<code>--wp</code>).Specifically this tells it to use the
+  simplest kinetic model that assumes all delivered blood-water has
+  the same T1 as that of blood (see Chapter 4 of the ASL primer for
+  more information) and that the Arterial Transit Time should be
+  treated as 0 seconds.</p>
+
+<p>To view the final result:</p>
+<pre class="bash">
+fsleyes oxasl/native_space/perfusion_calib.nii.gz
+  </pre>
+
+<p>The result will be similar to the analysis in <a href="../ex1/index.html"
+  target="dynamic">Example 1</a> although the effect of distortion
+  correction should be noticeable in the anterior protion of the
+  brain. The effects of motion correction are less obvious, this
+  data does not have a lot of motion corruption in it.</p>
+
+  <h2>Making use of Structural Images</h2>
+  <h3>(Primer Example Boxes 3.4 & 6.1)</h3> 
+  <p>Thus far all of the analyses have relied purely on the ASL data
+  alone. However, often you will have a (higher resolution) structural
+  image in the same subject and would like to use this as well, at the
+  very least as part of the proceess to transform the perfusion images into some
+  template space.</p>
+
+  <p>We can repeat the analysis above but now providing structural
+  information to <code>oxford_asl</code>. The recommended way to do
+  this is to take your T1 weighted structural image (which is most
+  common) and firstly process using <code>fsl_anat</code>, passing the
+  output directly from that tool to <code>oxford_asl</code>:</p>
+
+  <pre class="bash">
+  fsl_anat T1.nii.gz
+  oxford_asl -i asltc -o oxasl --wp --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 --fslanat=T1.anat
+  </pre>
+
+  <p>This analysis will take longer overall, although the extra time
+  is taken up doing registration between ASL and structural
+  images. 
+
+  <p>You will now find some new results in the output
+  directory:</p>
+  <list>
+  <li> <code>oxasl/struct_space</code> - this sub-drectory contains results
+  transformed into the same space as the structural image. The
+ files in here will match those in the <code>native_space</code>
+  subdirectry of the earlier analysis, i.e., containing perfusion
+images with and without calibration.</li>
+<li> <code>oxasl/native_space/asl2struct.mat</code> - this is the
+  (linear) transformation between ASL and structural space. It can be
+  used along with a transofrmation between sturcutral and template
+  space to transofrm the ASL data into the template space. It was used
+  to creat the results in <code>oxasl/struct_space</code>.</li>
+<li> <code>oxasl/native_space/perfusion_calib_gm_mean.txt</code> -
+  this contains the result of calculating the perfusion within a gray
+  matter mask, these are in ml/100g/min. The mask was derived from the partial volume estimates
+  created by <code>fsl_anat</code> and transformed into ASL space
+  followed by thresholding at 70%. This is a helpful check on the
+  absolute perfusion values found and it is not aytpical too see
+  values in the range 30-50 here. There is also a white matter result
+(for which a threshold of 90% was used).</li>
+<li> <code>oxasl/native_space/gm_mask.nii.gz</code> - this is the gray
+  matter mask used in the above calculations. There is also the
+  associated white matter mask.</li>
+  <li> <code>oxasl/native_space/gm_roi.nii.gz</code> - this is another
+  mask that represents areas in which there is some grey matter (at
+  least 10% from the partial volume estimates). This can be useful for
+  visualisation, but mainly when looking at partial volume corrected
+  data.</li>
+  </list>
+
+  <h2>Reference Tissue Calibration</h2>
+  <h3>(Primer Examples Boxes 5.3 & 5.4)</h3>
+  <p>Thus far the calibration to get perfsion in units of ml/100g/min
+  has been done using a voxelwise division of the realtive perfusion
+  image by the (suitbaly corrected) calibration image - so called
+  'voxelwise' calibration. This is in keeping with the recommendations
+  of the ASL White Paper for a simple to implement quantitative
+  analysis. However, we could also choose to use a reference tissue to
+  derive a single value for the equilirbirum mangetizstion of arterial
+  blood and use that in the calibnration process:</p>
+
+  <pre class="bash">
+  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 --fslanat=T1.anat
+  </pre>
+
+  <p>Notice the change in the command: <code>--wp</code>
+  has been replaced by <code>--bat=0</code>. In this run
+  <code>oxford_asl</code> is no longer in 'White Paper' mode, but we
+  are keeping with the assumption (implicitly) made by the ASL White
+  Paper that arterial transit time is zero (for historical reasons <code>oxford_asl</code>
+  calls it bat rather than att). The major difference is that
+  <oxford_asl> will now by default use the CSF partial volume
+  estimates to automatically generate a ventricle mask and calcuate the
+  equilirbirum mangetization of arterial blood from this reference
+  'tissue' as part of the calibration. Note that we can force which
+  calibration process <code>oxford_asl</code> uses with the
+  <code>--cmethod</code> option.</p>
+
+  <p>The resulting perfusion images should look very similar to those
+  produce using the voxelwise calibration, and the absolute values
+  should be similar too. For this, and many datasets, the two methods
+  are broadly equivalent. You can check on some of the interim
+  calcuations for the calibration by looking in the
+  <code>oxasl/calib</code> subdirectory: here you will find the value
+  of the estimated equilirbirum mangetization of arterial blood for
+  this dataset in <code>M0.txt</code> and the reference tissue mask in
+  <code>refmask.nii.gz</code>. It is worth checking that the latter
+  does indeed only lie in the venticles when overlaid on an ASL image
+  (e.g. the perfusion image or the calibration image), it should be
+  conservative, i.e., only select voxels well within the ventricles
+  and not on the boundary with white matter.</p>
+
+<h2>Partial Volume Correction</h2>
+<h3>(Primer Example Box 6.3)</h3>
+
+  <p>Having dealt with structural image and in the process obtained
+  partial volume estimates we are now in a position to do partial
+  volume correction. This does more than simply attempt to estimate
+  the mean perfusion within the grey matter by the definition of an
+  ROI based on the partial voume estimates, but attempts to derive and
+  image of gray matter perfusion directly (along with a separate image
+  for white matter).</p>
+  <p>As long as the structural image is available
+  <code>oxford_asl</code> will allow you to do partial volume
+  correction by the addition of the <code>--pvcorr</code> option:</p>
+
+  <pre class="bash">
+  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 --fslanat=T1.anat --pvcorr
+  </pre>
+
+<p>In the results directory you will still find an analysis performed
+without partial volume correction in <code>oxasl/native_space</code>
+as before. The results of partial volume correction can be found in
+<code>oxasl/native_space/pvcorr</code>. This new subdirectory has the
+sam structure as the non-corrected results, only now
+<code>perfusion_calib.nii.gz</code> is an estimate of perfusion only
+in gray matter, it has been joined by a new set of images for the
+estimation of white matter perfusion, e.g.,
+<code>perfusion_wm_calib.nii.gz</code>. It may be more helpful to look at
+<code>perfusion_calib_masked.nii.gz</code> (and the equivalent
+<code>perfusion_wm_calib_masked.nii.gz</code>) since this has been
+masked to include on voxels with more than 10% gray matter (white
+matter), i.e., voxels in which it is reasonable to interpret the gray
+matter (white matter) perfusion values.</p>
+
+<h2>Analysis in Epochs</h2>
+<h3>(Primer Example Box 7.2)</h3>
+<p>It is possible to analyse subsets of this ASL data to look for
+potential fluctuations in perfusion during the scan. As this was a
+resting scan wemight not expect to see large chanages; but, the
+principles of analysing 'epochs' of data can be applied in setigns
+where gradual or unpredictable perfusion changes might occur</p>
+
+<p>For epoch analysis we have to specifcy the 'length' of the epoch to
+use (number of volumes to be extracted for each perfusion image
+created) and the overlap between epochs (again the number of
+volumes). Here we will use epochs of 10 volumes with an overlap of 5,
+giving a total of 5 epochs.
+
+<pre class="bash">
+  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  -c aslcalib --tr 4.8 --fslanat=T1.anat \
+  --elen=10 --eol=5
+</pre>
+
+<p>As before this will produce a perfusion image using the whole of
+the data which is found in the <code>native_space</code>
+subdirectory. This will have been joined by a series of
+sub_directories, <code>epoch0000</code> ... <code>epoch0004</code>,
+that contain the results of analysis of only the label-control images
+in each epoch. </p>
+
+  <hr>
+
+<h2> ADVANCED: Distortion correction using TOPUP</h2>
+<h3>(Primer Example Box 3.2)</h3>
+  <p>In this example we have allowed <code>oxford_asl</code> to do the
+  distortion correction, which uses TOPUP internally. You can opt to
+  do this for yourself, which may be necessary if your data is not in
+  the form <code>oxford_asl</code> expects, e.g., you do not have
+  blip-reversed calibration images.</p>
+
+  <p>To do distortion correction using TOPUP on this data you would
+  need to do the following:</p>
+
+  <p>Run TOPUP to estimate the distortion.</p>
+
+  <pre class="bash">
+fslmerge -t aslcalib_blipped aslcalib aslcalib_PA 
+echo "0 1 0 0.06" > topup_params.txt
+echo "0 -1 0 0.06" >> topup_params.txt
+topup --imain=aslcalib_blipped --datain=topup_params.txt --config=b02b0.cnf --out=topup_results
+  </pre>
+
+  <p>Apply the correction to the calibration images.</p>
+  
+   <pre class="bash">
+    applytopup --imain=aslcalib,aslcalib_PA --inindex=1,2
+    --datain=topup_params.txt --topup=topup_results --out=aslcalib_corr --method=jac
+  </pre>
+
+  <p>Apply the correction to the ASL series.</p>
+
+   <pre class="bash">
+    applytopup --imain=asltc --datain=topup_params.txt
+    --inindex=1 --topup=topup_results --out=asltc_corr --method=jac
+</pre>
+
+<p>We can do a quick check to see if this has worked by looking at the
+PWI, which we can generate using <code>asl_file</code>:</p>
+
+<pre class="bash">
+asl_file --data=id${id}_asltc_corr --ntis=1 --iaf=tc --diff --out=asldiffdata_corr --mean=asldiffdata_corr_mean
+</pre>
+
+<p>Compare this to the uncorrected case:</p>
+
+<pre class="bash">
+asl_file --data=asltc --ntis=1 --iaf=tc --diff --out=asldiffdata --mean=asldiffdata_mean
+fsleyes asldiffdata_mean asldiffdata_corr_mean
+</pre>
+
+<p>Ideally we would like to apply motion correction together with
+distortion correction (having derived suitable estimates of their
+separate effects first). A pragmatic compromise would be to do the
+motion correction first and then the disotortion correction.</p>
+
+<h2>ADVANCED: Partial Volume Correction using Linear Regression</h2>
+<h3>(Primer Example Box 6.2)</h3>
+
+<p>The partial volume correction in <code>oxford_asl</code> is based
+on a method that exploits the Bayesian inference methods built into
+BASIL. However, you can opt to use the alternative Linear Regression
+approach should you wish. To do this you have to do the correction in
+a first step, using <code>asl_file</code>, prior to quantification
+using <code>oxford_asl</code>:</p>
+
+<pre class="bash">
+# get partial volume estimates into the ASL space
+convert_xfm -omat struct2asl.mat -inverse oxasl/native_space/asl2struct.mat
+applywarp --ref=asltc --in=T1.anat/T1_fast_pve_1 --out=pvgminasl --premat=struct2asl.mat --super --interp=spline --superlevel=4
+
+# do linear regression on the ASL difference data
+asl_file --data=asltc --ntis=1 --iaf=tc --diff --out=asldiffdata
+asl_file --data=asldiffdata --ntis=1 --iaf=diff --mask=oxasl/native_space/mask \
+--pvgm=pvgminasl --pvwm=pvwminasl --kernel=5 --out=asldiff_LR
+
+# do the quantification on the LR corrected difference data
+    oxford_asl -i asldiff_LR -o oxasl_LR --spatial --bat=0 --iaf=diff --casl --tis=3.6 --bolus=1.8 --slicedt=0.0452 \
+-c aslcalib --csf=oxasl/calib/refmask --cmethod=single
+   fslmaths oxasl_LR/native_space/perfusion_calib -mas oxasl/native_space/gm_mask LR_perfusion_calib_masked
+</pre>
+
+<p>Note that we have made use of the results from a previous run of
+oxford_asl on the non-corrected data for things like the brain mask,
+transformation between ASL and structural space and the grey matter
+mask. This routine only computes gray matter perfusion, a similar
+approach could be taken for white matter.</p>
+
+</body>
+
+
