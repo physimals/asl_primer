@@ -117,8 +117,8 @@ fsleyes oxasl/native_space/perfusion_calib.nii.gz
   output directly from that tool to <code>oxford_asl</code>:</p>
 
   <pre class="bash">
-  fsl_anat T1.nii.gz
-  oxford_asl -i asltc -o oxasl --wp --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  fsl_anat -i T1.nii.gz
+  oxford_asl -i asltc -o oxasl --wp --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --mc \
   -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 --fslanat=T1.anat
   </pre>
 
@@ -169,7 +169,7 @@ images with and without calibration.</li>
   blood and use that in the calibnration process:</p>
 
   <pre class="bash">
-  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --mc \
   -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 --fslanat=T1.anat
   </pre>
 
@@ -215,7 +215,7 @@ images with and without calibration.</li>
   correction by the addition of the <code>--pvcorr</code> option:</p>
 
   <pre class="bash">
-  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --mc \
   -c aslcalib --tr 4.8 --cblip=aslcalib_PA --pedir=y --echospacing=0.00095 --fslanat=T1.anat --pvcorr
   </pre>
 
@@ -249,7 +249,7 @@ volumes). Here we will use epochs of 10 volumes with an overlap of 5,
 giving a total of 5 epochs.
 
 <pre class="bash">
-  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --moco \
+  oxford_asl -i asltc -o oxasl --bat=0 --casl --iaf=tc --tis=3.6 --bolus=1.8 --slicedt=0.0452 --spatial --mc \
   -c aslcalib --tr 4.8 --fslanat=T1.anat \
   --elen=10 --eol=5
 </pre>
