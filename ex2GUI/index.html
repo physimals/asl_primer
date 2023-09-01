@@ -69,7 +69,7 @@ window.onload=function() {
   <p>On the 'Distortion Correction' tab, select 'Apply distortion
   correction'. Load the 'Phase-encode-reveresed calibration image'
   <code>aslcalib_PA.nii.gz</code>. Set the 'Effective EPI echo
-  spacing' to 0.00095 and the 'Phase encoding direction' to 'y'.</p>
+  spacing' to 0.95ms and the 'Phase encoding direction' to 'y'.</p>
 
    <img src="Dist.jpeg" alt="BASIL GUI previewing perfusion-weighted
   image" width=900>
@@ -176,12 +176,12 @@ images with and without calibration.</li>
   blood and use that in the calibnration process.</p>
 
   <p>Go back to the analysis you have already setup. We are now going
-  to turn off 'White Paper' mode, this will provide us with more
-  options to get a potentially more accurate analysis. To do this return to the 'Analysis' tab
-  and deselect the 'White Paper' option, you will see that the
-  'Arterial Transit Time' goes from 0 seconds to 1.3 seconds (the
+  to turn off 'White Paper' mode and change some options
+  to get a potentially more accurate analysis. To do this return to the 'Analysis' tab
+  and deselect the 'Check Compatibility' option. Then change the 
+  'Arterial Transit Time' from 0 seconds to 1.3 seconds (the
   default value for pcASL in BASIL based on our experience with pcASL
-  labeling plane placement) and the 'T1' value (for tissue) is
+  labeling plane placement) and the 'T1' value (for tissue) to 1.3s,
   different to 'T1b' (for arterial blood), since the Standard (aka
   Buxton) model for ASL kinetics considers labeled blood both in the
   vascualture and the tissue.</p>
